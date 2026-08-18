@@ -24,12 +24,22 @@ class SignalReason(BaseModel):
     passed: bool
 
 
+class RuleResult(BaseModel):
+    id: str
+    indicator: str
+    passed: bool
+    value: Optional[float]
+    threshold: Optional[Any]
+    weight: int
+    explanation: str
+
+
 class AnalyzeResponse(BaseModel):
     symbol: str
     mode: str
     signal: str
     confidence: str
-    reasons: List[SignalReason]
+    reasons: List[RuleResult]
     risk_score: float
     invalidation_price: Optional[float]
     latest: IndicatorEntry
