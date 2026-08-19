@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 import pandas as pd
+from app.indicators import attach_indicators
 
 # Engine version
 ENGINE_VERSION = "engine_v0.1-demo"
@@ -32,6 +33,18 @@ def _make_rule(id: str, indicator: str, passed: bool, value: Optional[float], th
 
 
 def evaluate_rules(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Evaluate rule results using indicator columns.
+
+    If the provided DataFrame does not already contain the expected indicator
+    columns (e.g., 'ema20'), this function will attach indicators using the
+    standard attach_indicators helper. This keeps the function resilient when
+    callers pass raw OHLCV data.
+    """
+    # If indicators are missing (tests may pass raw OHLCV), compute them.
+    if "ema20" not in df.columns:
+        # use a copy to avoid mutating caller's DataFrame
+        df = attach_indicators(df.copy())
+
     latest = df.iloc[-1]
     close = float(latest["close"])
     ema20 = float(latest["ema20"])
@@ -174,6 +187,10 @@ def analyze_signals(df: pd.DataFrame) -> Dict[str, Any]:
 
     Returns a dict compatible with previous API but reasons now contain detailed RuleResult entries.
     """
+    # Ensure indicators are present for downstream logic
+    if "ema20" not in df.columns:
+        df = attach_indicators(df.copy())
+
     latest = df.iloc[-1]
     symbol = "DEMO"
 
