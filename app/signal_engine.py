@@ -205,19 +205,52 @@ def analyze_signals(df: pd.DataFrame) -> Dict[str, Any]:
     max_buy = sum([r["weight"] for r in buy_rules])
     max_sell = sum([r["weight"] for r in sell_rules])
 
-    # Decide signal deterministically: require majority of weighted rules and no strong opposite
-    signal = "AVOID/WAIT"
-    if buy_score >= max(1, int(max_buy * 0.6)) and sell_score == 0:
-        signal = "BUY"
-    elif sell_score >= max(1, int(max_sell * 0.6)) and buy_score == 0:
-        signal = "SELL"
-    else:
-        signal = "AVOID/WAIT"
+    # Decision fractions
+    buy_fraction = (buy_score / max_buy) if max_buy > 0 else 0.0
+    sell_fraction = (sell_score / max_sell) if max_sell > 0 else 0.0
 
     # metrics for confidence/risk
     vol20 = float(latest.get("volatility20", 0.0) if not pd.isna(latest.get("volatility20", 0.0)) else 0.0)
     atr = float(latest.get("atr14", 0.0) if not pd.isna(latest.get("atr14", 0.0)) else 0.0)
     close = float(latest["close"])
+
+    # Decision thresholds (as requested)
+    strong_majority_frac = 0.6
+    weak_majority_frac = 0.4
+    opposite_tolerance_frac = 0.2
+    volatility_block_frac = 0.5
+    atr_block_ratio = 0.03
+
+    # Safety overrides: high volatility or ATR blocks active signals
+    atr_ratio = (atr / close) if close > 0 else float('inf')
+    decision_reason = "default"
+    signal = "AVOID/WAIT"
+
+    if vol20 >= volatility_block_frac:
+        signal = "AVOID/WAIT"
+        decision_reason = "high_volatility"
+    elif atr_ratio >= atr_block_ratio:
+        signal = "AVOID/WAIT"
+        decision_reason = "high_atr"
+    else:
+        # Strong buy
+        if (buy_fraction >= strong_majority_frac) and (sell_fraction <= opposite_tolerance_frac):
+            signal = "BUY"
+            decision_reason = "strong_buy"
+        # Strong sell
+        elif (sell_fraction >= strong_majority_frac) and (buy_fraction <= opposite_tolerance_frac):
+            signal = "SELL"
+            decision_reason = "strong_sell"
+        # Weak/leaning signals: conservative -> AVOID/WAIT
+        elif (buy_fraction >= weak_majority_frac) and (buy_fraction > sell_fraction):
+            signal = "AVOID/WAIT"
+            decision_reason = "lean_buy_avoid"
+        elif (sell_fraction >= weak_majority_frac) and (sell_fraction > buy_fraction):
+            signal = "AVOID/WAIT"
+            decision_reason = "lean_sell_avoid"
+        else:
+            signal = "AVOID/WAIT"
+            decision_reason = "default"
 
     if signal == "BUY":
         conf_label, conf_value = compute_confidence(buy_score, max_buy, vol20, atr, close)
@@ -255,6 +288,7 @@ def analyze_signals(df: pd.DataFrame) -> Dict[str, Any]:
             "max_sell": int(max_sell),
             "volatility20": vol20,
             "atr14": atr,
+            "decision_reason": decision_reason,
         },
     }
     return out
