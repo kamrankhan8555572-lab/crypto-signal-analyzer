@@ -18,6 +18,18 @@ class IndicatorEntry(BaseModel):
     volume: int
 
 
+class OhlcvUploadRequest(BaseModel):
+    """Model for user-provided OHLCV JSON payload.
+
+    data: list of IndicatorEntry rows (timestamp, open, high, low, close, volume)
+    min_periods: optional minimum required rows before analysis (default 20)
+    symbol: optional metadata only
+    """
+    symbol: Optional[str] = "BTC-USD"
+    data: List[IndicatorEntry]
+    min_periods: Optional[int] = 20
+
+
 class SignalReason(BaseModel):
     indicator: str
     description: str
