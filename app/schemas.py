@@ -51,6 +51,7 @@ class AnalyzeResponse(BaseModel):
     mode: str
     signal: str
     confidence: str
+    confidence_score: float
     reasons: List[RuleResult]
     risk_score: float
     invalidation_price: Optional[float]
